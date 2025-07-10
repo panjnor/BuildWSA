@@ -43,11 +43,6 @@ jobs:
           ubuntu-version: "16.04"
           cached: ${{ steps.cache-llvm.outputs.cache-hit }}
 
-      - name: Setup SukiSU Ultra via setup.sh
-        working-directory: WSA-Linux-Kernel
-        run: |
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-      
       - name: Setup kernel source
         uses: actions/checkout@v4
         with:
@@ -55,6 +50,11 @@ jobs:
           ref: android-lts/latte-2/${{ inputs.version }}
           path: WSA-Linux-Kernel
 
+      - name: Setup SukiSU Ultra via setup.sh
+        working-directory: WSA-Linux-Kernel
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+  
       - name: Setup Ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
@@ -78,7 +78,7 @@ jobs:
           cd $KERNEL_ROOT && git apply $GITHUB_WORKSPACE/SukiSU/.github/patches/5.15/*.patch || echo "[-] No patch found"
           echo "[+] SukiSU Ultra setup done."
           cd $GITHUB_WORKSPACE/SukiSU
-          VERSION=$(($(git rev-list --count HEAD) + 20200))
+          VERSION=$(($(git rev-list --count HEAD) + 2571000))
           echo "VERSION: $VERSION"
           echo "sukisu_version=$VERSION" >> $GITHUB_ENV
 
