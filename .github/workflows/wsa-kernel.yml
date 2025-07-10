@@ -77,10 +77,6 @@ jobs:
           echo "[+] Apply SukiSU Ultra patches"
           cd $KERNEL_ROOT && git apply $GITHUB_WORKSPACE/SukiSU/.github/patches/5.15/*.patch || echo "[-] No patch found"
           echo "[+] SukiSU Ultra setup done."
-          cd $GITHUB_WORKSPACE/SukiSU
-          VERSION=$(($(git rev-list --count HEAD) + 2571000))
-          echo "VERSION: $VERSION"
-          echo "sukisu_version=$VERSION" >> $GITHUB_ENV
 
       - name: Build Kernel
         working-directory: WSA-Linux-Kernel
