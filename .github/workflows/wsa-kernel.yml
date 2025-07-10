@@ -61,23 +61,7 @@ jobs:
           key: WSA-Kernel-${{ inputs.version }}-${{ inputs.arch }}
           save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           max-size: 2G
-
-      - name: Setup SukiSU Ultra
-        working-directory: WSA-Linux-Kernel
-        run: |
-          echo "[+] SukiSU Ultra setup"
-          KERNEL_ROOT=$GITHUB_WORKSPACE/WSA-Linux-Kernel
-          echo "[+] Copy SukiSU driver to $KERNEL_ROOT/drivers"
-          ln -sf $GITHUB_WORKSPACE/SukiSU/kernel $KERNEL_ROOT/drivers/sukisu
-          echo "[+] Add SukiSU driver to Makefile"
-          DRIVER_MAKEFILE=$KERNEL_ROOT/drivers/Makefile
-          DRIVER_KCONFIG=$KERNEL_ROOT/drivers/Kconfig
-          grep -q "sukisu" "$DRIVER_MAKEFILE" || printf "\nobj-\$(CONFIG_SUKISU) += sukisu/\n" >> "$DRIVER_MAKEFILE"
-          grep -q "sukisu" "$DRIVER_KCONFIG" || sed -i "/endmenu/i\\source \"drivers/sukisu/Kconfig\"" "$DRIVER_KCONFIG"
-          echo "[+] Apply SukiSU Ultra patches"
-          cd $KERNEL_ROOT && git apply $GITHUB_WORKSPACE/SukiSU/.github/patches/5.15/*.patch || echo "[-] No patch found"
-          echo "[+] SukiSU Ultra setup done."
-
+          
       - name: Build Kernel
         working-directory: WSA-Linux-Kernel
         run: |
