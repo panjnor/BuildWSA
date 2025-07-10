@@ -53,33 +53,8 @@ jobs:
       - name: Setup SukiSU Ultra via setup.sh
         working-directory: WSA-Linux-Kernel
         run: |
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
 
-      - name: Integrate susfs for SukiSU
-        working-directory: WSA-Linux-Kernel
-        run: |
-          echo "[+] Cloning susfs4ksu..."
-          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs
-
-          ls -R susfs
-
-          echo "[+] Copying susfs implementation to fs/susfs/"
-          mkdir -p fs/susfs
-          cp -rv susfs/fs/susfs/* fs/susfs/
-
-          echo "[+] Appending susfs to fs/Makefile (if not exists)"
-          grep -q "susfs" fs/Makefile || echo 'obj-$(CONFIG_SUSFS) += susfs/' >> fs/Makefile
-
-          echo "[+] Appending susfs to fs/Kconfig (if not exists)"
-          grep -q "susfs/Kconfig" fs/Kconfig || \
-            sed -i '/^endmenu/i source "fs/susfs/Kconfig"' fs/Kconfig
-
-          echo "[+] Enabling CONFIG_SUSFS in .config"
-          sed -i '/CONFIG_SUSFS/d' .config || true
-          echo "CONFIG_SUSFS=y" >> .config
-
-
-  
       - name: Setup Ccache
         uses: hendrikmuhs/ccache-action@v1
         with:
