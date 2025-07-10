@@ -1,0 +1,11 @@
+name: Test SukiSU Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/wsa-kernel.yml
+    with:
+      arch: x86_64
+      version: "5.15.104.4"
