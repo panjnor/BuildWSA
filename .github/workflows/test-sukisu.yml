@@ -1,4 +1,4 @@
-name: WSA Kernel v5.15 x86_64 Build
+name: WSA Kernel v5.15 x86_64 Build sukisu
 
 on:
   workflow_dispatch:
