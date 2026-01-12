@@ -33,19 +33,23 @@ jobs:
       # 3. 安装 LLVM 12 
       - name: Setup LLVM toolchain
         run: |
-          export LLVM_VERSION=12
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh $LLVM_VERSION
-          rm llvm.sh
-          # 创建软链接，方便 make 调用
-          sudo ln -sf /usr/bin/clang-$LLVM_VERSION /usr/bin/clang
-          sudo ln -sf /usr/bin/ld.lld-$LLVM_VERSION /usr/bin/ld.lld
-          sudo ln -sf /usr/bin/llvm-ar-$LLVM_VERSION /usr/bin/llvm-ar
-          sudo ln -sf /usr/bin/llvm-nm-$LLVM_VERSION /usr/bin/llvm-nm
-          sudo ln -sf /usr/bin/llvm-strip-$LLVM_VERSION /usr/bin/llvm-strip
-          sudo ln -sf /usr/bin/llvm-objcopy-$LLVM_VERSION /usr/bin/llvm-objcopy
-          sudo ln -sf /usr/bin/llvm-objdump-$LLVM_VERSION /usr/bin/llvm-objdump
+          # Ubuntu 22.04 自带 clang-12，直接安装
+          sudo apt update
+          sudo apt install -y clang-12 lld-12 llvm-12
+
+          # 创建软链接，确保 make 调用的是 v12 版本
+          # 注意：Ubuntu 默认安装后，二进制文件带 -12 后缀
+          sudo ln -sf /usr/bin/clang-12 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-12 /usr/bin/clang++
+          sudo ln -sf /usr/bin/ld.lld-12 /usr/bin/ld.lld
+          sudo ln -sf /usr/bin/llvm-ar-12 /usr/bin/llvm-ar
+          sudo ln -sf /usr/bin/llvm-nm-12 /usr/bin/llvm-nm
+          sudo ln -sf /usr/bin/llvm-strip-12 /usr/bin/llvm-strip
+          sudo ln -sf /usr/bin/llvm-objcopy-12 /usr/bin/llvm-objcopy
+          sudo ln -sf /usr/bin/llvm-objdump-12 /usr/bin/llvm-objdump
+          
+          # 验证版本
+          clang --version
 
       # 4. 切换到指定 WSA kernel tag
       - name: Checkout WSA kernel tag
