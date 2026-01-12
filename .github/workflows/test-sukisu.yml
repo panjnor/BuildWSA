@@ -1,11 +1,88 @@
-name: Test SukiSU Build
+name: WSA Kernel v5.15 x86_64 Build
 
 on:
   workflow_dispatch:
+    inputs:
+      kernel_tag:
+        description: 'WSA kernel tag (e.g. android-lts/latte-2/5.15.78.1)'
+        required: true
+        default: 'android-lts/latte-2/5.15.104.4'
 
 jobs:
-  test:
-    uses: ./.github/workflows/wsa-kernel.yml
-    with:
-      arch: x86_64
-      version: "5.15.104.4"
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 拉取源码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 安装依赖
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends \
+            bc bison build-essential flex git \
+            libelf-dev libssl-dev libncurses-dev \
+            ca-certificates gnupg lsb-release \
+            software-properties-common wget
+
+      # 3. 安装 LLVM
+      - name: Setup LLVM toolchain
+        run: |
+          export LLVM_VERSION=12
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh $LLVM_VERSION
+          rm llvm.sh
+          sudo ln -sf /usr/bin/clang-$LLVM_VERSION /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-$LLVM_VERSION /usr/bin/clang++
+          sudo ln -sf /usr/bin/ld.lld-$LLVM_VERSION /usr/bin/ld.lld
+          sudo ln -sf /usr/bin/llvm-ar-$LLVM_VERSION /usr/bin/llvm-ar
+          sudo ln -sf /usr/bin/llvm-nm-$LLVM_VERSION /usr/bin/llvm-nm
+          sudo ln -sf /usr/bin/llvm-strip-$LLVM_VERSION /usr/bin/llvm-strip
+          sudo ln -sf /usr/bin/llvm-objcopy-$LLVM_VERSION /usr/bin/llvm-objcopy
+          sudo ln -sf /usr/bin/llvm-readelf-$LLVM_VERSION /usr/bin/llvm-readelf
+          sudo ln -sf /usr/bin/llvm-objdump-$LLVM_VERSION /usr/bin/llvm-objdump
+
+      # 4. 切换到指定的 WSA v5.15 tag
+      - name: Checkout WSA kernel tag
+        run: |
+          git fetch --tags
+          git checkout ${{ github.event.inputs.kernel_tag }}
+
+      # ========================================================
+      # [新增] 步骤 4.5: 集成 SukiSU-Ultra (Kprobe 模式)
+      # 说明：使用你提供的 curl 命令将 SukiSU 代码下载到内核树中
+      # ========================================================
+      - name: Setup SukiSU-Ultra (Kprobe)
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+
+      # 5. [修改] 配置内核
+      # 说明：除了应用默认配置外，必须显式开启 KSU 和 Kprobes 选项
+      - name: Configure kernel
+        run: |
+          cp configs/wsa/config-wsa-x64 .config
+          
+          # 确保 Kprobe 开启（通常默认开启，但为了保险起见）
+          echo "CONFIG_KPROBES=y" >> .config
+          echo "CONFIG_HAVE_KPROBES=y" >> .config
+          echo "CONFIG_KPROBE_EVENTS=y" >> .config
+          
+          # 开启 SukiSU/KernelSU 选项
+          echo "CONFIG_KSU=y" >> .config
+          
+          # 应用新配置
+          make olddefconfig
+
+      # 6. 编译内核
+      - name: Build WSA kernel (x86_64, v5.15)
+        run: |
+          make -j$(nproc) LLVM=1 bzImage
+
+      # 7. 上传构建产物
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WSA-Kernel-v5.15-x86_64-SukiSU
+          path: arch/x86/boot/bzImage
