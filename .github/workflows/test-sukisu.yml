@@ -28,16 +28,24 @@ jobs:
             libelf-dev libssl-dev libncurses-dev \
             ca-certificates gnupg lsb-release \
             software-properties-common wget \
-            python3 python-is-python3 \
-            rsync unzip zip
+            rsync
 
-      # 3. 安装 LLVM
-      - name: Install LLVM toolchain
+      # 3. 安装 LLVM 12 
+      - name: Setup LLVM toolchain
         run: |
-          sudo apt install -y clang llvm lld
-
-          clang --version
-          ld.lld --version
+          export LLVM_VERSION=12
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh $LLVM_VERSION
+          rm llvm.sh
+          # 创建软链接，方便 make 调用
+          sudo ln -sf /usr/bin/clang-$LLVM_VERSION /usr/bin/clang
+          sudo ln -sf /usr/bin/ld.lld-$LLVM_VERSION /usr/bin/ld.lld
+          sudo ln -sf /usr/bin/llvm-ar-$LLVM_VERSION /usr/bin/llvm-ar
+          sudo ln -sf /usr/bin/llvm-nm-$LLVM_VERSION /usr/bin/llvm-nm
+          sudo ln -sf /usr/bin/llvm-strip-$LLVM_VERSION /usr/bin/llvm-strip
+          sudo ln -sf /usr/bin/llvm-objcopy-$LLVM_VERSION /usr/bin/llvm-objcopy
+          sudo ln -sf /usr/bin/llvm-objdump-$LLVM_VERSION /usr/bin/llvm-objdump
 
       # 4. 切换到指定 WSA kernel tag
       - name: Checkout WSA kernel tag
@@ -45,31 +53,37 @@ jobs:
           git fetch --tags
           git checkout ${{ github.event.inputs.kernel_tag }}
 
-      # 5. 集成 SukiSU-Ultra
+      # 5. 集成 SukiSU-Ultra (Kprobe 模式)
+      # 这会将 SukiSU 源码下载到 drivers/kernelsu 并修改 Kconfig/Makefile
       - name: Setup SukiSU-Ultra (Kprobe)
         run: |
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
             | bash -s main
 
-      # 6. 启用 GKI + KernelSU / kprobe
-      - name: Enable GKI + KSU configs
+      # 6. 配置内核 (关键步骤：混合 WSA 配置与 KSU 配置)
+      - name: Configure kernel
         run: |
-          # 指定 GKI x86_64 构建入口
-          export BUILD_CONFIG=build.config.gki.x86_64
+          # A. 复制 WSA 官方推荐的 x86_64 配置文件
+          cp configs/wsa/config-wsa-x64 .config
+          
+          # B. 手动注入 KSU 和 Kprobe 配置 (这就相当于修改了 GKI 配置)
+          echo "CONFIG_KPROBES=y" >> .config
+          echo "CONFIG_HAVE_KPROBES=y" >> .config
+          echo "CONFIG_KPROBE_EVENTS=y" >> .config
+          echo CONFIG_KSU_MANUAL_HOOK=y >> .config
+          
+          # C. 验证并更新配置
+          make olddefconfig
 
-          # 确保 scripts/config 可用
-          chmod +x scripts/config
-
-      # 7. 构建 GKI 内核（官方方式）
-      - name: Build GKI kernel (x86_64)
+      # 7. 编译内核
+      # 使用 LLVM=1 启用 Clang 编译，-j$(nproc) 并行编译
+      - name: Build WSA kernel
         run: |
-          export BUILD_CONFIG=build.config.gki.x86_64
-          build/build.sh
+          make -j$(nproc) LLVM=1 bzImage
 
       # 8. 上传构建产物
       - name: Upload kernel artifact
         uses: actions/upload-artifact@v4
         with:
           name: WSA-GKI-v5.15-x86_64-SukiSU
-          path: |
-            out/**/dist/bzImage
+          path: arch/x86/boot/bzImage
