@@ -1,22 +1,25 @@
-name: WSA Kernel v5.15 x86_64 Build sukisu
+name: WSA Kernel v5.15 GKI x86_64 SukiSU
 
 on:
   workflow_dispatch:
     inputs:
       kernel_tag:
-        description: 'WSA kernel tag (e.g. android-lts/latte-2/5.15.78.1)'
+        description: 'WSA kernel tag'
         required: true
         default: 'android-lts/latte-2/5.15.104.4'
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
+
     steps:
       # 1. 拉取源码
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2. 安装依赖
+      # 2. 安装基础依赖
       - name: Install build dependencies
         run: |
           sudo apt update
@@ -24,65 +27,49 @@ jobs:
             bc bison build-essential flex git \
             libelf-dev libssl-dev libncurses-dev \
             ca-certificates gnupg lsb-release \
-            software-properties-common wget
+            software-properties-common wget \
+            python3 python-is-python3 \
+            rsync unzip zip
 
       # 3. 安装 LLVM
-      - name: Setup LLVM toolchain
+      - name: Install LLVM toolchain
         run: |
-          export LLVM_VERSION=12
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh $LLVM_VERSION
-          rm llvm.sh
-          sudo ln -sf /usr/bin/clang-$LLVM_VERSION /usr/bin/clang
-          sudo ln -sf /usr/bin/clang++-$LLVM_VERSION /usr/bin/clang++
-          sudo ln -sf /usr/bin/ld.lld-$LLVM_VERSION /usr/bin/ld.lld
-          sudo ln -sf /usr/bin/llvm-ar-$LLVM_VERSION /usr/bin/llvm-ar
-          sudo ln -sf /usr/bin/llvm-nm-$LLVM_VERSION /usr/bin/llvm-nm
-          sudo ln -sf /usr/bin/llvm-strip-$LLVM_VERSION /usr/bin/llvm-strip
-          sudo ln -sf /usr/bin/llvm-objcopy-$LLVM_VERSION /usr/bin/llvm-objcopy
-          sudo ln -sf /usr/bin/llvm-readelf-$LLVM_VERSION /usr/bin/llvm-readelf
-          sudo ln -sf /usr/bin/llvm-objdump-$LLVM_VERSION /usr/bin/llvm-objdump
+          sudo apt install -y clang llvm lld
 
-      # 4. 切换到指定的 WSA v5.15 tag
+          clang --version
+          ld.lld --version
+
+      # 4. 切换到指定 WSA kernel tag
       - name: Checkout WSA kernel tag
         run: |
           git fetch --tags
           git checkout ${{ github.event.inputs.kernel_tag }}
 
-      # ========================================================
-      # [新增] 步骤 4.5: 集成 SukiSU-Ultra (Kprobe 模式)
-      # 说明：使用你提供的 curl 命令将 SukiSU 代码下载到内核树中
-      # ========================================================
+      # 5. 集成 SukiSU-Ultra
       - name: Setup SukiSU-Ultra (Kprobe)
         run: |
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+            | bash -s main
 
-      # 5. [修改] 配置内核
-      # 说明：除了应用默认配置外，必须显式开启 KSU 和 Kprobes 选项
-      - name: Configure kernel
+      # 6. 启用 GKI + KernelSU / kprobe
+      - name: Enable GKI + KSU configs
         run: |
-          cp configs/wsa/config-wsa-x64 .config
-          
-          # 确保 Kprobe 开启（通常默认开启，但为了保险起见）
-          echo "CONFIG_KPROBES=y" >> .config
-          echo "CONFIG_HAVE_KPROBES=y" >> .config
-          echo "CONFIG_KPROBE_EVENTS=y" >> .config
-          
-          # 开启 SukiSU/KernelSU 选项
-          echo "CONFIG_KSU=y" >> .config
-          
-          # 应用新配置
-          make olddefconfig
+          # 指定 GKI x86_64 构建入口
+          export BUILD_CONFIG=build.config.gki.x86_64
 
-      # 6. 编译内核
-      - name: Build WSA kernel (x86_64, v5.15)
+          # 确保 scripts/config 可用
+          chmod +x scripts/config
+
+      # 7. 构建 GKI 内核（官方方式）
+      - name: Build GKI kernel (x86_64)
         run: |
-          make -j$(nproc) LLVM=1 bzImage
+          export BUILD_CONFIG=build.config.gki.x86_64
+          build/build.sh
 
-      # 7. 上传构建产物
+      # 8. 上传构建产物
       - name: Upload kernel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: WSA-Kernel-v5.15-x86_64-SukiSU
-          path: arch/x86/boot/bzImage
+          name: WSA-GKI-v5.15-x86_64-SukiSU
+          path: |
+            out/**/dist/bzImage
