@@ -6,7 +6,7 @@ on:
       kernel_tag:
         description: 'WSA kernel tag (e.g. android-lts/latte-2/5.15.78.1)'
         required: true
-        default: 'android-lts/latte-2/5.15.78.1'
+        default: 'android-lts/latte-2/5.15.104.4'
 
 jobs:
   build:
